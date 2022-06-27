@@ -93,13 +93,12 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                             .output()
                             .expect("ls cmd failed to start");
 
+                        let stdout = String::from_utf8_lossy(&output.stdout).replace('\n', " ");
+                        let cd_items: Vec<&str> = stdout.split(" ").collect();
+                        for cd_item in cd_items {
+                            app.messages.push(format!("{}", cd_item));
+                        }
 
-                        let s = format!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-
-                        app.messages.push(format!("status: {}", output.status));
-                        app.messages.push(s.replace('\n', " "));
-                        app.messages.push(format!("stderr: {}", String::from_utf8_lossy(&output.stderr)));
-                        app.messages.push(format!("status: {}", output.status.success()));
                     }
                     _ => {}
                 },
