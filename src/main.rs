@@ -1,8 +1,8 @@
-use std::{io, thread, time::Duration};
-use std::borrow::Cow;
+use std::{io};
+use std::borrow::Borrow;
 use std::error::Error;
-use std::io::Write;
-use regex::Regex;
+use std::env;
+use std::path::Path;
 use tui::{
     backend::CrosstermBackend,
     style::{Color, Modifier, Style},
@@ -11,7 +11,7 @@ use tui::{
     layout::{Layout, Constraint, Direction},
     Frame, Terminal
 };
-use std::process::{Command, Output};
+use std::process::{Command};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -20,20 +20,13 @@ use crossterm::{
 use tui::backend::Backend;
 use tui::widgets::ListState;
 
-use unicode_width::UnicodeWidthStr;
-
-enum InputMode {
-    Normal,
-    Editing,
-}
-
-struct StatefulList<T> {
+struct StatefulList<String> {
     state: ListState,
-    items: Vec<T>,
+    items: Vec<String>,
 }
 
-impl<T> StatefulList<T> {
-    fn with_items(items: Vec<T>) -> StatefulList<T> {
+impl<String> StatefulList<String> {
+    fn with_items(items: Vec<String>) -> StatefulList<String> {
         StatefulList {
             state: ListState::default(),
             items,
@@ -75,13 +68,6 @@ impl<T> StatefulList<T> {
 
 /// App holds the state of the application
 struct App{
-    /// Current value of the input box
-    input: String,
-    /// Current input mode
-    input_mode: InputMode,
-    /// History of recorded messages
-    messages: Vec<String>,
-
     items: StatefulList<String>,
 
     title: String
@@ -92,9 +78,6 @@ impl Default for App {
         let cd_items = list_current_dir();
         let title = get_current_dir();
         App {
-            input: String::new(),
-            input_mode: InputMode::Normal,
-            messages: Vec::new(),
             items: StatefulList::with_items(cd_items),
             title
         }
@@ -103,7 +86,7 @@ impl Default for App {
 
 fn list_current_dir() -> Vec<String>{
     //cmd
-    let mut output = Command::new("ls")
+    let output = Command::new("ls")
         .arg("-a")
         .output()
         .expect("ls cmd failed to start");
@@ -111,16 +94,35 @@ fn list_current_dir() -> Vec<String>{
     //convert items to Vec<&str>
     let stdout = String::from_utf8_lossy(&output.stdout).replace('\n', " ");
     let mut cd_items: Vec<String> = stdout.split(" ").map(String::from).collect();
+    cd_items.remove(0);
     cd_items.pop();
     cd_items
 }
 fn get_current_dir() -> String{
-    let mut output = Command::new("pwd")
+    let output = Command::new("pwd")
         .output()
         .expect("ls cmd failed to start");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut cd: String = stdout.to_string();
+    let cd: String = stdout.to_string();
     cd
+}
+
+fn set_current_dir(app: &mut App) {
+    let i = match app.items.state.selected() {
+        Some(i) => i,
+        None => 0
+    };
+
+    let changed = env::set_current_dir(Path::new(&app.items.items[i])).is_ok();
+
+    match changed {
+        true => {
+            app.title = get_current_dir();
+            app.items = StatefulList::with_items(list_current_dir());
+            app.items.state.select(Some(0));
+        } ,
+        _ => ()
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -132,7 +134,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     //create app and run it
-    let mut app = App::default();
+    let app = App::default();
     let res = run_app(&mut terminal, app);
 
     // restore terminal
@@ -161,6 +163,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                 KeyCode::Left | KeyCode::Right => app.items.unselect(),
                 KeyCode::Down => app.items.next(),
                 KeyCode::Up => app.items.previous(),
+                KeyCode::Enter => set_current_dir(&mut app),
                 _ => {}
             }
         }
@@ -175,7 +178,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     let items: Vec<ListItem> =
         app.items.items.iter().map(|i| {
-            let mut lines = vec![Spans::from(i.to_string())];
+            let lines = vec![Spans::from(i.to_string())];
             ListItem::new(lines).style(Style::default().fg(Color::LightCyan))
         })
         .collect();
