@@ -11,13 +11,14 @@ use tui::{
     layout::{Layout, Constraint, Direction},
     Frame, Terminal
 };
-use std::process::Command;
+use std::process::{Command, Output};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode,enable_raw_mode,EnterAlternateScreen,LeaveAlternateScreen},
 };
 use tui::backend::Backend;
+use tui::widgets::ListState;
 
 use unicode_width::UnicodeWidthStr;
 
@@ -26,24 +27,88 @@ enum InputMode {
     Editing,
 }
 
+struct StatefulList<T> {
+    state: ListState,
+    items: Vec<T>,
+}
+
+impl<T> StatefulList<T> {
+    fn with_items(items: Vec<T>) -> StatefulList<T> {
+        StatefulList {
+            state: ListState::default(),
+            items,
+        }
+    }
+
+    fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    fn unselect(&mut self) {
+        self.state.select(None);
+    }
+}
+
 /// App holds the state of the application
-struct App {
+struct App{
     /// Current value of the input box
     input: String,
     /// Current input mode
     input_mode: InputMode,
     /// History of recorded messages
     messages: Vec<String>,
+
+    items: StatefulList<String>,
 }
 
 impl Default for App {
     fn default() -> App {
+        let cd_items = list_current_dir();
         App {
             input: String::new(),
             input_mode: InputMode::Normal,
             messages: Vec::new(),
+            items: StatefulList::with_items(cd_items)
         }
     }
+}
+
+fn list_current_dir() -> Vec<String>{
+    //cmd
+    let mut output = Command::new("ls")
+        .arg("-a")
+        .output()
+        .expect("ls cmd failed to start");
+
+    //convert items to Vec<&str>
+    let stdout = String::from_utf8_lossy(&output.stdout).replace('\n', " ");
+    let mut cd_items: Vec<String> = stdout.split(" ").map(String::from).collect();
+    cd_items.pop();
+    cd_items
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -56,27 +121,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     //create app and run it
     let mut app = App::default();
-
-    //cmd
-    let mut output = Command::new("ls")
-        .arg("-a")
-        .output()
-        .expect("ls cmd failed to start");
-
-    //convert items to Vec<&str>
-    let stdout = String::from_utf8_lossy(&output.stdout).replace('\n', " ");
-    let cd_items: Vec<&str> = stdout.split(" ").collect();
-
-    //list
-    let mut i: i32 = 0;
-    let count: i32 = (cd_items.len() - 1) as i32;
-    for cd_item in cd_items {
-        if i < count {
-            app.messages.push(format!("{}", cd_item));
-        }
-        i += 1;
-    }
-
     let res = run_app(&mut terminal, app);
 
     // restore terminal
@@ -97,35 +141,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
     loop {
-        terminal.draw(|f| ui(f, &app))?;
+        terminal.draw(|f| ui(f, &mut app))?;
 
         if let Event::Key(key) = event::read()? {
             match app.input_mode {
                 InputMode::Normal => match key.code {
-                    KeyCode::Char('e') => {
-                        app.input_mode = InputMode::Editing;
-                    }
-                    KeyCode::Char('q') => {
-                        return Ok(());
-                    }
-                    KeyCode::Char('l') => {
-                        let mut output = Command::new("ls")
-                            .arg("-a")
-                            .output()
-                            .expect("ls cmd failed to start");
-
-                        let stdout = String::from_utf8_lossy(&output.stdout).replace('\n', " ");
-                        let cd_items: Vec<&str> = stdout.split(" ").collect();
-                        let mut i: i32 = 0;
-                        let count: i32 = (cd_items.len() - 1) as i32;
-                        for cd_item in cd_items {
-                            if i < count {
-                                app.messages.push(format!("{}", cd_item));
-                            }
-                            i += 1;
-                        }
-
-                    }
+                    KeyCode::Char('e') => app.input_mode = InputMode::Editing,
+                    KeyCode::Char('q') => return Ok(()),
+                    KeyCode::Left => app.items.unselect(),
+                    KeyCode::Down => app.items.next(),
+                    KeyCode::Up => app.items.previous(),
                     _ => {}
                 },
                 InputMode::Editing => match key.code {
@@ -147,7 +172,31 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
         }
     }
 }
-fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
+fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(f.size());
+
+    let items: Vec<ListItem> =
+        app.items.items.iter().map(|i| {
+            let mut lines = vec![Spans::from(i.to_string())];
+            ListItem::new(lines).style(Style::default().fg(Color::Black).bg(Color::White))
+        })
+        .collect();
+
+    let items = List::new(items)
+        .block(Block::default().borders(Borders::ALL).title("List"))
+        .highlight_style(
+            Style::default()
+                .bg(Color::LightGreen)
+                .add_modifier(Modifier::BOLD),
+        )
+        .highlight_symbol(">> ");
+
+    f.render_stateful_widget(items, chunks[0], &mut app.items.state);
+    /*
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
@@ -158,8 +207,10 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
                 Constraint::Min(1),
             ]
             .as_ref(),
+
         )
         .split(f.size());
+
 
     let (msg, style) = match app.input_mode {
         InputMode::Normal => (
@@ -222,5 +273,5 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
         .collect();
     let messages =
         List::new(messages).block(Block::default().borders(Borders::ALL).title("Messages"));
-    f.render_widget(messages, chunks[2]);
+    f.render_widget(messages, chunks[2]);*/
 }
