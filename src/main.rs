@@ -156,30 +156,12 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
         terminal.draw(|f| ui(f, &mut app))?;
 
         if let Event::Key(key) = event::read()? {
-            match app.input_mode {
-                InputMode::Normal => match key.code {
-                    KeyCode::Char('e') => app.input_mode = InputMode::Editing,
-                    KeyCode::Char('q') => return Ok(()),
-                    KeyCode::Left | KeyCode::Right => app.items.unselect(),
-                    KeyCode::Down => app.items.next(),
-                    KeyCode::Up => app.items.previous(),
-                    _ => {}
-                },
-                InputMode::Editing => match key.code {
-                    KeyCode::Enter => {
-                        app.messages.push(app.input.drain(..).collect());
-                    }
-                    KeyCode::Char(c) => {
-                        app.input.push(c);
-                    }
-                    KeyCode::Backspace => {
-                        app.input.pop();
-                    }
-                    KeyCode::Esc => {
-                        app.input_mode = InputMode::Normal;
-                    }
-                    _ => {}
-                },
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(()),
+                KeyCode::Left | KeyCode::Right => app.items.unselect(),
+                KeyCode::Down => app.items.next(),
+                KeyCode::Up => app.items.previous(),
+                _ => {}
             }
         }
     }
@@ -187,8 +169,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Percentage(50)].as_ref())
         .split(f.size());
 
     let items: Vec<ListItem> =
@@ -202,7 +184,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .block(
             Block::default()
                 .border_style(
-                    Style::default().fg(Color::Black)
+                    Style::default().fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD)
                 )
             .borders(Borders::ALL).title(app.title.to_string())
@@ -213,6 +195,24 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol(">> ");
+    let (msg, style) = {
+        (
+            vec![
+                Span::raw("Press "),
+                Span::styled("q", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to exit, "),
+                Span::styled("arrow keys", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to navigate, "),
+                Span::styled("enter", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to change directory, "),
+            ],
+            Style::default().add_modifier(Modifier::RAPID_BLINK)
+        )
+    };
 
-    f.render_stateful_widget(items, chunks[0], &mut app.items.state);
+    let mut text = Text::from(Spans::from(msg));
+    text.patch_style(style);
+    let help_message = Paragraph::new(text);
+    f.render_widget(help_message, chunks[0]);
+    f.render_stateful_widget(items, chunks[1], &mut app.items.state);
 }
