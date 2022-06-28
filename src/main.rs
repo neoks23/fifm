@@ -55,7 +55,28 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     //create app and run it
-    let app = App::default();
+    let mut app = App::default();
+
+    //cmd
+    let mut output = Command::new("ls")
+        .arg("-a")
+        .output()
+        .expect("ls cmd failed to start");
+
+    //convert items to Vec<&str>
+    let stdout = String::from_utf8_lossy(&output.stdout).replace('\n', " ");
+    let cd_items: Vec<&str> = stdout.split(" ").collect();
+
+    //list
+    let mut i: i32 = 0;
+    let count: i32 = (cd_items.len() - 1) as i32;
+    for cd_item in cd_items {
+        if i < count {
+            app.messages.push(format!("{}", cd_item));
+        }
+        i += 1;
+    }
+
     let res = run_app(&mut terminal, app);
 
     // restore terminal
@@ -95,8 +116,13 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 
                         let stdout = String::from_utf8_lossy(&output.stdout).replace('\n', " ");
                         let cd_items: Vec<&str> = stdout.split(" ").collect();
+                        let mut i: i32 = 0;
+                        let count: i32 = (cd_items.len() - 1) as i32;
                         for cd_item in cd_items {
-                            app.messages.push(format!("{}", cd_item));
+                            if i < count {
+                                app.messages.push(format!("{}", cd_item));
+                            }
+                            i += 1;
                         }
 
                     }
