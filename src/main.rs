@@ -18,6 +18,7 @@ use crossterm::{
     terminal::{disable_raw_mode,enable_raw_mode,EnterAlternateScreen,LeaveAlternateScreen},
 };
 use tui::backend::Backend;
+use tui::layout::Alignment;
 use tui::widgets::ListState;
 
 struct StatefulList<String> {
@@ -69,16 +70,18 @@ impl<String> StatefulList<String> {
 /// App holds the state of the application
 struct App{
     items: StatefulList<String>,
-
+    view_items: Vec<String>,
     title: String
 }
 
 impl Default for App {
     fn default() -> App {
-        let cd_items = list_current_dir();
+        let cd_items = list_current_dir_with_rights();
+        let view_items = list_current_dir();
         let title = get_current_dir();
         App {
             items: StatefulList::with_items(cd_items),
+            view_items,
             title
         }
     }
@@ -92,8 +95,24 @@ fn list_current_dir() -> Vec<String>{
         .expect("ls cmd failed to start");
 
     //convert items to Vec<&str>
-    let stdout = String::from_utf8_lossy(&output.stdout).replace('\n', " ");
-    let mut cd_items: Vec<String> = stdout.split(" ").map(String::from).collect();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut cd_items: Vec<String> = stdout.split('\n').map(String::from).collect();
+    cd_items.remove(0);
+    cd_items.pop();
+    cd_items
+}
+fn list_current_dir_with_rights() -> Vec<String>{
+    //cmd
+    let output = Command::new("ls")
+        .arg("-a")
+        .arg("-l")
+        .output()
+        .expect("ls cmd failed to start");
+
+    //convert items to Vec<&str>
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut cd_items: Vec<String> = stdout.split('\n').map(String::from).collect();
+    cd_items.remove(0);
     cd_items.remove(0);
     cd_items.pop();
     cd_items
@@ -113,12 +132,14 @@ fn set_current_dir(app: &mut App) {
         None => 0
     };
 
-    let changed = env::set_current_dir(Path::new(&app.items.items[i])).is_ok();
+    app.title = app.view_items[i].to_string();
+    let changed = env::set_current_dir(Path::new(&app.view_items[i])).is_ok();
 
     match changed {
         true => {
             app.title = get_current_dir();
-            app.items = StatefulList::with_items(list_current_dir());
+            app.view_items = list_current_dir();
+            app.items = StatefulList::with_items(list_current_dir_with_rights());
             app.items.state.select(Some(0));
         } ,
         _ => ()
@@ -190,7 +211,10 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                     Style::default().fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD)
                 )
-            .borders(Borders::ALL).title(app.title.to_string())
+            .borders(Borders::ALL)
+                .title(
+                    Span::styled(app.title.to_string(), Style::default().fg(Color::Blue).add_modifier(Modifier::ITALIC))
+                )
         )
         .highlight_style(
             Style::default()
