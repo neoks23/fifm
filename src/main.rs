@@ -194,7 +194,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Percentage(50)].as_ref())
+        .constraints([Constraint::Length(2), Constraint::Percentage(50)].as_ref())
         .split(f.size());
 
     let items: Vec<ListItem> =
