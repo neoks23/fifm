@@ -92,6 +92,10 @@ pub fn copy(app: &mut App){
     app.command = cd;
     app.title = format!("Copied {}",  app.command.as_str());
 }
+pub fn move_file(app: &mut App){
+    copy(app);
+    select(app, CommandType::Move);
+}
 pub fn remove(app: &mut App) {
     select(app, CommandType::Remove);
     make_command(app);
@@ -140,7 +144,47 @@ pub fn make_command(app: &mut App){
                 Err(e) => app.title = e.to_string()
             }
         }
-        CommandType::Move => (),
+        CommandType::Move => {
+
+            let mut cd =  get_current_dir();
+            cd = cd.trim().parse().unwrap();
+            cd.push_str("/");
+            cd.push_str(app.selected_item.as_str());
+
+            if app.command.to_string() == cd {
+                cd.clear();
+                cd =  get_current_dir();
+                cd = cd.trim().parse().unwrap();
+                cd.push_str("/");
+                let size = list_current_dir_matches(app.selected_item.to_string());
+                cd.push_str(format!("({}) ", size).as_str());
+                cd.push_str(app.selected_item.as_str());
+            }
+
+            let res = std::fs::copy(app.command.to_string(), cd);
+
+            match res {
+                Ok(_res) => {
+                    app.title = "moved file succesfully".to_string();
+                    app.items = list_current_dir("-a".to_string());
+                    app.view_items = StatefulList::with_items(list_current_dir("-l".to_string()));
+                    app.view_items.state.select(Some(0));
+                },
+                Err(e) => app.title = e.to_string(),
+            }
+
+            let res = std::fs::remove_file(app.command.to_string());
+            match res {
+                Ok(_res) => {
+                    app.title = format!("Moved {} succesfully to Trash", app.command.to_string());
+                    app.items = list_current_dir("-a".to_string());
+                    app.view_items = StatefulList::with_items(list_current_dir("-l".to_string()));
+                    app.view_items.state.select(Some(0));
+                },
+                Err(e) => app.title = e.to_string()
+            }
+
+        },
         CommandType::Idle => (),
     }
 }

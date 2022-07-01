@@ -2,9 +2,6 @@ mod custom_io;
 
 use std::{io};
 use std::error::Error;
-use std::env;
-use std::fmt::format;
-use std::path::Path;
 use tui::{
     backend::CrosstermBackend,
     style::{Color, Modifier, Style},
@@ -13,7 +10,6 @@ use tui::{
     layout::{Layout, Constraint, Direction},
     Frame, Terminal
 };
-use std::process::{Command};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -21,7 +17,7 @@ use crossterm::{
 };
 use tui::backend::Backend;
 use tui::widgets::ListState;
-use crate::custom_io::{get_current_dir, list_current_dir, set_current_dir, copy, make_command, remove};
+use crate::custom_io::{get_current_dir, list_current_dir, set_current_dir, copy, make_command, move_file, remove};
 
 ///Define custom stateful list, containing fields:
 ///state: The state to get the current state of the list, for in this case manipulating cursor position
@@ -171,6 +167,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
             match key.code {
                 KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(()),
                 KeyCode::Char('c') | KeyCode::Char('C') => copy(&mut app),
+                KeyCode::Char('m') | KeyCode::Char('M') => move_file(&mut app),
                 KeyCode::Char('v') | KeyCode::Char('V') => make_command(&mut app),
                 KeyCode::Char('r') | KeyCode::Char('R') => remove(&mut app),
                 KeyCode::Left | KeyCode::Right | KeyCode::Esc => {app.view_items.unselect(); app.title = get_current_dir()},
@@ -239,9 +236,13 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 Span::styled("enter", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" to change directory, "),
                 Span::styled("c", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to copy file, "),
+                Span::raw(" to copy file"),
                 Span::styled("r", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" to remove directory/file, "),
+                Span::styled("m", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to move file, "),
+                Span::styled("v", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to paste file (also must be used by 'm')."),
             ],
             Style::default().add_modifier(Modifier::RAPID_BLINK)
         )
