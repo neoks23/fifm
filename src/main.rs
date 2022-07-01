@@ -238,6 +238,10 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 Span::raw(" to navigate, "),
                 Span::styled("enter", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" to change directory, "),
+                Span::styled("c", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to copy file, "),
+                Span::styled("r", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to remove directory/file, "),
             ],
             Style::default().add_modifier(Modifier::RAPID_BLINK)
         )
