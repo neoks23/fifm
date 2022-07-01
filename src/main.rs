@@ -1,6 +1,9 @@
+mod custom_io;
+
 use std::{io};
 use std::error::Error;
 use std::env;
+use std::fmt::format;
 use std::path::Path;
 use tui::{
     backend::CrosstermBackend,
@@ -18,6 +21,7 @@ use crossterm::{
 };
 use tui::backend::Backend;
 use tui::widgets::ListState;
+use crate::custom_io::{get_current_dir, list_current_dir, set_current_dir, copy, make_command, remove};
 
 ///Define custom stateful list, containing fields:
 ///state: The state to get the current state of the list, for in this case manipulating cursor position
@@ -26,6 +30,13 @@ use tui::widgets::ListState;
 struct StatefulList<String> {
     state: ListState,
     items: Vec<String>,
+}
+
+enum CommandType{
+    Idle,
+    Move,
+    Remove,
+    Copy
 }
 
 impl<String> StatefulList<String> {
@@ -88,99 +99,28 @@ impl<String> StatefulList<String> {
 /// __________
 /// view_items is what is displayed during each fifm session
 
-struct App{
+pub struct App{
     view_items: StatefulList<String>,
     items: Vec<String>,
+    command_type: CommandType,
+    command: String,
+    selected_item: String,
     title: String
 }
 
 impl Default for App {
     fn default() -> App {
-        let view_items = list_current_dir_with_rights();
-        let cd_items = list_current_dir();
+        let view_items = list_current_dir("-l".to_string());
+        let cd_items = list_current_dir("-a".to_string());
         let title = get_current_dir();
         App {
             view_items: StatefulList::with_items(view_items),
+            command_type: CommandType::Idle,
+            command: "".to_string(),
+            selected_item: "".to_string(),
             items: cd_items,
             title
         }
-    }
-}
-
-///outputs current dir for cd_items
-fn list_current_dir() -> Vec<String>{
-    //cmd
-    let output = Command::new("ls")
-        .arg("-a")
-        .output()
-        .expect("ls cmd failed to start");
-
-    //convert cmd output from u8 to a valid string
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    //convert string to string slices and insert the output  Vec<String>
-    let mut cd_items: Vec<String> = stdout.split('\n').map(String::from).collect();
-
-    //Remove unnecessary "." directory
-    cd_items.remove(0);
-
-    //Remove unnecessary whitespace index
-    cd_items.pop();
-    cd_items
-}
-///outputs current dir for view_items
-fn list_current_dir_with_rights() -> Vec<String>{
-    //cmd
-    let output = Command::new("ls")
-        .arg("-a")
-        .arg("-l")
-        .output()
-        .expect("ls cmd failed to start");
-
-    //convert cmd output from u8 to a valid string
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    //convert string to string slices and insert the output  Vec<String>
-    let mut cd_items: Vec<String> = stdout.split('\n').map(String::from).collect();
-
-    //Remove the "Total" line
-    cd_items.remove(0);
-
-    //Remove unnecessary "." directory
-    cd_items.remove(0);
-
-    //Remove unnecessary whitespace index
-    cd_items.pop();
-    cd_items
-}
-///gets current directory, this is used for the title of the main block
-fn get_current_dir() -> String{
-    let output = Command::new("pwd")
-        .output()
-        .expect("ls cmd failed to start");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let cd: String = stdout.to_string();
-    cd
-}
-
-///sets directory once enter is pressed and destination is a valid directory
-fn set_current_dir(app: &mut App) {
-    let i = match app.view_items.state.selected() {
-        Some(i) => i,
-        None => 0
-    };
-
-    app.title = app.items[i].to_string();
-    let changed = env::set_current_dir(Path::new(&app.items[i])).is_ok();
-
-    match changed {
-        true => {
-            app.title = get_current_dir();
-            app.items = list_current_dir();
-            app.view_items = StatefulList::with_items(list_current_dir_with_rights());
-            app.view_items.state.select(Some(0));
-        } ,
-        _ => ()
     }
 }
 
@@ -230,6 +170,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
         if let Event::Key(key) = event::read()? {
             match key.code {
                 KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(()),
+                KeyCode::Char('c') | KeyCode::Char('C') => copy(&mut app),
+                KeyCode::Char('v') | KeyCode::Char('V') => make_command(&mut app),
+                KeyCode::Char('r') | KeyCode::Char('R') => remove(&mut app),
                 KeyCode::Left | KeyCode::Right | KeyCode::Esc => {app.view_items.unselect(); app.title = get_current_dir()},
                 KeyCode::Down => app.view_items.next(),
                 KeyCode::Up => app.view_items.previous(),
