@@ -2,7 +2,6 @@ use std::env;
 use fs_extra::error::Error;
 use std::path::Path;
 use std::process::Command;
-use std::fs::metadata;
 use crate::{App, CommandType, StatefulList};
 
 
@@ -113,7 +112,9 @@ pub fn make_command(app: &mut App){
             cd.push_str("/");
             cd.push_str(app.selected_item.as_str());
 
-            if app.command.to_string() == cd {
+            let md = Path::new(app.command.as_str());
+
+            if app.command.to_string() == cd && md.is_file() {
                 cd.clear();
                 cd =  get_current_dir();
                 cd = cd.trim().parse().unwrap();
@@ -123,21 +124,21 @@ pub fn make_command(app: &mut App){
                 cd.push_str(app.selected_item.as_str());
             }
 
-            let md = metadata(cd.clone());
-
             match md {
-                Ok(md) if md.is_dir() => {
-                    let options = fs_extra::dir::CopyOptions::new();
+                md if md.is_dir() => {
+                    let mut cd =  get_current_dir();
+                    cd = cd.trim().parse().unwrap();
+                    let mut options = fs_extra::dir::CopyOptions::new();
+                    options.overwrite = true;
                     let res = fs_extra::dir::copy(app.command.to_string(), cd, &options);
                     result(app, res,  "Copied directory succesfully".to_string());
                 },
-                Ok(md) if md.is_file() => {
+                md if md.is_file() => {
                     let options = fs_extra::file::CopyOptions::new();
                     let res = fs_extra::file::copy(app.command.to_string(), cd, &options);
                     result(app, res, "Copied file succesfully".to_string());
                 },
-                Err(e) => app.title = format!("Error metadata {}", e.to_string()),
-                _ => {}
+                _ => {app.title = format!("Error metadata")}
             }
         },
         CommandType::Remove => {
@@ -159,7 +160,9 @@ pub fn make_command(app: &mut App){
             cd.push_str("/");
             cd.push_str(app.selected_item.as_str());
 
-            if app.command.to_string() == cd {
+            let md = Path::new(app.command.as_str());
+
+            if app.command.to_string() == cd && md.is_file() {
                 cd.clear();
                 cd =  get_current_dir();
                 cd = cd.trim().parse().unwrap();
@@ -169,21 +172,20 @@ pub fn make_command(app: &mut App){
                 cd.push_str(app.selected_item.as_str());
             }
 
-            let md = metadata(&cd.clone());
-
             match md {
-                Ok(md) if md.is_dir() => {
+                md if md.is_dir() => {
+                    let mut cd =  get_current_dir();
+                    cd = cd.trim().parse().unwrap();
                     let options = fs_extra::dir::CopyOptions::new();
-                    let res = fs_extra::dir::move_dir(app.command.to_string(), cd, &options);
-                    result(app, res, "Moved directory succesfully".to_string());
+                    let res = fs_extra::dir::move_dir(app.command.to_string(), &cd, &options);
+                    result(app, res,  "Moved directory succesfully".to_string());
                 },
-                Ok(md) if md.is_file() => {
+                md if md.is_file() => {
                     let options = fs_extra::file::CopyOptions::new();
                     let res = fs_extra::file::move_file(app.command.to_string(), cd, &options);
                     result(app, res, "Moved file succesfully".to_string());
                 },
-                Err(e) => app.title = format!("Error metadata {}", e.to_string()),
-                _ => {}
+                _ => {app.title = format!("Error metadata")}
             }
         },
         CommandType::Idle => (),
