@@ -96,6 +96,7 @@ pub fn copy(app: &mut App){
 }
 pub fn move_file(app: &mut App){
     copy(app);
+    app.title = format!("Cut {}",  app.command.as_str());
     select(app, CommandType::Move);
 }
 pub fn remove(app: &mut App) {
