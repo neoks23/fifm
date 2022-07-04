@@ -177,7 +177,8 @@ pub fn make_command(app: &mut App){
                 md if md.is_dir() => {
                     let mut cd =  get_current_dir();
                     cd = cd.trim().parse().unwrap();
-                    let options = fs_extra::dir::CopyOptions::new();
+                    let mut options = fs_extra::dir::CopyOptions::new();
+                    options.overwrite = true;
                     let res = fs_extra::dir::move_dir(app.command.to_string(), &cd, &options);
                     result(app, res,  "Moved directory succesfully".to_string());
                 },
