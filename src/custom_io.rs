@@ -1,7 +1,10 @@
 use std::env;
+use fs_extra::error::Error;
 use std::path::Path;
 use std::process::Command;
+use std::fs::metadata;
 use crate::{App, CommandType, StatefulList};
+
 
 pub fn list_current_dir_matches(grep: String) -> usize {
     let output = Command::new("ls")
@@ -120,16 +123,21 @@ pub fn make_command(app: &mut App){
                 cd.push_str(app.selected_item.as_str());
             }
 
-            let res = std::fs::copy(app.command.to_string(), cd);
+            let md = metadata(cd.clone());
 
-            match res {
-                Ok(_res) => {
-                    app.title = "pasted file succesfully".to_string();
-                    app.items = list_current_dir("-a".to_string());
-                    app.view_items = StatefulList::with_items(list_current_dir("-l".to_string()));
-                    app.view_items.state.select(Some(0));
+            match md {
+                Ok(md) if md.is_dir() => {
+                    let options = fs_extra::dir::CopyOptions::new();
+                    let res = fs_extra::dir::copy(app.command.to_string(), cd, &options);
+                    result(app, res,  "Copied directory succesfully".to_string());
                 },
-                Err(e) => app.title = e.to_string(),
+                Ok(md) if md.is_file() => {
+                    let options = fs_extra::file::CopyOptions::new();
+                    let res = fs_extra::file::copy(app.command.to_string(), cd, &options);
+                    result(app, res, "Copied file succesfully".to_string());
+                },
+                Err(e) => app.title = format!("Error metadata {}", e.to_string()),
+                _ => {}
             }
         },
         CommandType::Remove => {
@@ -161,30 +169,34 @@ pub fn make_command(app: &mut App){
                 cd.push_str(app.selected_item.as_str());
             }
 
-            let res = std::fs::copy(app.command.to_string(), cd);
+            let md = metadata(&cd.clone());
 
-            match res {
-                Ok(_res) => {
-                    app.title = "moved file succesfully".to_string();
-                    app.items = list_current_dir("-a".to_string());
-                    app.view_items = StatefulList::with_items(list_current_dir("-l".to_string()));
-                    app.view_items.state.select(Some(0));
+            match md {
+                Ok(md) if md.is_dir() => {
+                    let options = fs_extra::dir::CopyOptions::new();
+                    let res = fs_extra::dir::move_dir(app.command.to_string(), cd, &options);
+                    result(app, res, "Moved directory succesfully".to_string());
                 },
-                Err(e) => app.title = e.to_string(),
-            }
-
-            let res = std::fs::remove_file(app.command.to_string());
-            match res {
-                Ok(_res) => {
-                    app.title = format!("Moved {} succesfully to Trash", app.command.to_string());
-                    app.items = list_current_dir("-a".to_string());
-                    app.view_items = StatefulList::with_items(list_current_dir("-l".to_string()));
-                    app.view_items.state.select(Some(0));
+                Ok(md) if md.is_file() => {
+                    let options = fs_extra::file::CopyOptions::new();
+                    let res = fs_extra::file::move_file(app.command.to_string(), cd, &options);
+                    result(app, res, "Moved file succesfully".to_string());
                 },
-                Err(e) => app.title = e.to_string()
+                Err(e) => app.title = format!("Error metadata {}", e.to_string()),
+                _ => {}
             }
-
         },
         CommandType::Idle => (),
+    }
+}
+fn result(app: &mut App, res: Result<u64, Error>, on_succes_msg: String) {
+    match res {
+        Ok(_res) => {
+            app.title = on_succes_msg;
+            app.items = list_current_dir("-a".to_string());
+            app.view_items = StatefulList::with_items(list_current_dir("-l".to_string()));
+            app.view_items.state.select(Some(0));
+        },
+        Err(e) => app.title = format!("Error res {}", e.to_string()),
     }
 }
