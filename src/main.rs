@@ -17,7 +17,7 @@ use crossterm::{
 };
 use tui::backend::Backend;
 use tui::widgets::ListState;
-use crate::custom_io::{get_current_dir, list_current_dir, set_current_dir, copy, make_command, move_file, remove};
+use crate::custom_io::{get_current_dir, list_current_dir, set_current_dir, copy, make_command, move_file, delete};
 
 ///Define custom stateful list, containing fields:
 ///state: The state to get the current state of the list, for in this case manipulating cursor position
@@ -169,7 +169,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                 KeyCode::Char('c') | KeyCode::Char('C') => copy(&mut app),
                 KeyCode::Char('m') | KeyCode::Char('M') => move_file(&mut app),
                 KeyCode::Char('v') | KeyCode::Char('V') => make_command(&mut app),
-                KeyCode::Char('r') | KeyCode::Char('R') => remove(&mut app),
+                KeyCode::Char('d') | KeyCode::Char('D') => delete(&mut app),
                 KeyCode::Left | KeyCode::Right | KeyCode::Esc => {app.view_items.unselect(); app.title = get_current_dir()},
                 KeyCode::Down => app.view_items.next(),
                 KeyCode::Up => app.view_items.previous(),
@@ -191,7 +191,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         //            Constraint 1.          Constraint 2.
-        .constraints([Constraint::Length(2), Constraint::Percentage(50)].as_ref())
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(f.size());
 
     // insert the view_items in a Vec<ListItem> with custom styling
@@ -224,36 +224,37 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         )
         .highlight_symbol(">> ");
 
-    // Initialize instruction msg along with styling.
-    let (msg, style) = {
-        (
-            vec![
-                Span::raw("Press "),
-                Span::styled("q", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to exit, "),
-                Span::styled("arrow keys", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to navigate, "),
-                Span::styled("enter", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to change directory, "),
-                Span::styled("c", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to copy file"),
-                Span::styled("r", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to remove directory/file, "),
-                Span::styled("m", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to move file, "),
-                Span::styled("v", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to paste file (also must be used by 'm')."),
-            ],
-            Style::default().add_modifier(Modifier::RAPID_BLINK)
-        )
-    };
+    let mut instruction_items: Vec<String> = Vec::new();
+    instruction_items.push("arrow keys -> move".to_string());
+    instruction_items.push("enter -> enter directory".to_string());
+    instruction_items.push("q -> quit".to_string());
+    instruction_items.push("c -> copy".to_string());
+    instruction_items.push("m -> cut (move)".to_string());
+    instruction_items.push("v -> paste".to_string());
+    instruction_items.push("d -> delete".to_string());
 
-    //Convert separate msg and styling to one text component.
-    let mut text = Text::from(Spans::from(msg));
-    text.patch_style(style);
-    let help_message = Paragraph::new(text);
-    //render message
-    f.render_widget(help_message, chunks[0]);
+    let mut instruction_items: Vec<ListItem> =
+        instruction_items.iter().map(|i|{
+            let lines = vec![Spans::from(i.to_string())];
+            ListItem::new(lines).style(Style::default().fg(Color::LightCyan).add_modifier(Modifier::ITALIC))
+        })
+        .collect();
+
+    let instruction_items: List = List::new(instruction_items)
+        .block(
+            Block::default()
+                .border_style(
+                    Style::default().fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
+                )
+                .borders(Borders::ALL)
+                .title(
+                    Span::styled("MANUAL", Style::default().fg(Color::Blue).add_modifier(Modifier::ITALIC))
+                )
+        );
+
     //render list items
-    f.render_stateful_widget(items, chunks[1], &mut app.view_items.state);
+    f.render_stateful_widget(items, chunks[0], &mut app.view_items.state);
+    //render message
+    f.render_widget(instruction_items, chunks[1]);
 }

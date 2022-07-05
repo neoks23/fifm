@@ -99,7 +99,7 @@ pub fn move_file(app: &mut App){
     app.title = format!("Cut {}",  app.command.as_str());
     select(app, CommandType::Move);
 }
-pub fn remove(app: &mut App) {
+pub fn delete(app: &mut App) {
     select(app, CommandType::Remove);
     make_command(app);
 }
