@@ -1,5 +1,5 @@
 use std::env;
-use fs_extra::error::Error;
+use fs_extra::error::{Error, ErrorKind};
 use std::path::Path;
 use std::process::Command;
 use crate::{App, CommandType, StatefulList};
@@ -96,11 +96,16 @@ pub fn make_command(app: &mut App){
                 md if md.is_dir() => {
                     let mut options = fs_extra::dir::CopyOptions::new();
                     options.overwrite = true;
-                    let res = fs_extra::dir::copy(app.command.to_string(), cd, &options);
+
+                    let res: fs_extra::error::Result<u64> =
+                    if app.selected_item.to_string() == ".." {Err(Error::new(ErrorKind::Other, "user not allowed to copy .. directory"))}
+                    else {fs_extra::dir::copy(app.command.to_string(), cd, &options)};
+
                     result(app, res,  "Copied directory succesfully".to_string());
                 },
                 md if md.is_file() => {
-                    let options = fs_extra::file::CopyOptions::new();
+                    let mut options = fs_extra::file::CopyOptions::new();
+                    options.overwrite = true;
                     let res = fs_extra::file::copy(app.command.to_string(), cd, &options);
                     result(app, res, "Copied file succesfully".to_string());
                 },
@@ -124,7 +129,6 @@ pub fn make_command(app: &mut App){
             }
         }
         CommandType::Cut => {
-
             let mut cd =  get_current_dir();
             cd = cd.trim().parse().unwrap();
 
@@ -137,11 +141,16 @@ pub fn make_command(app: &mut App){
                 md if md.is_dir() => {
                     let mut options = fs_extra::dir::CopyOptions::new();
                     options.overwrite = true;
-                    let res = fs_extra::dir::move_dir(app.command.to_string(), cd, &options);
+
+                    let res: fs_extra::error::Result<u64> =
+                        if app.selected_item.to_string() == ".." {Err(Error::new(ErrorKind::Other, "user not allowed to move .. directory"))}
+                        else {fs_extra::dir::move_dir(app.command.to_string(), cd, &options)};
+
                     result(app, res,  "Moved directory succesfully".to_string());
                 },
                 md if md.is_file() => {
-                    let options = fs_extra::file::CopyOptions::new();
+                    let mut options = fs_extra::file::CopyOptions::new();
+                    options.overwrite = true;
                     let res = fs_extra::file::move_file(app.command.to_string(), cd, &options);
                     result(app, res, "Moved file succesfully".to_string());
                 },
