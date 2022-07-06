@@ -89,8 +89,8 @@ pub fn make_command(app: &mut App){
 
             let md = Path::new(app.command.as_str());
 
-            if md.is_file() { cd.push_str("/"); cd.push_str(app.selected_item.as_str());}
-            if app.command.to_string() == cd && md.is_file() { cd = make_file_dest(app.selected_item.to_string()); }
+            if md.is_file() { cd.push_str(format!("/{}", app.selected_item).as_str()); }
+            if app.command.to_string() == cd && md.is_file() { cd = make_file_already_exists_dest(app.selected_item.to_string()); }
 
             match md {
                 md if md.is_dir() => {
@@ -106,7 +106,9 @@ pub fn make_command(app: &mut App){
                 md if md.is_file() => {
                     let mut options = fs_extra::file::CopyOptions::new();
                     options.overwrite = true;
+
                     let res = fs_extra::file::copy(app.command.to_string(), cd, &options);
+
                     result(app, res, "Copied file succesfully".to_string());
                 },
                 _ => {app.title = format!("Error metadata")}
@@ -134,8 +136,8 @@ pub fn make_command(app: &mut App){
 
             let md = Path::new(app.command.as_str());
 
-            if md.is_file() { cd.push_str("/"); cd.push_str(app.selected_item.as_str());}
-            if app.command.to_string() == cd && md.is_file() { cd = make_file_dest(app.selected_item.to_string()); }
+            if md.is_file() { cd.push_str(format!("/{}", app.selected_item).as_str()); }
+            if app.command.to_string() == cd && md.is_file() { cd = make_file_already_exists_dest(app.selected_item.to_string()); }
 
             match md {
                 md if md.is_dir() => {
@@ -151,7 +153,9 @@ pub fn make_command(app: &mut App){
                 md if md.is_file() => {
                     let mut options = fs_extra::file::CopyOptions::new();
                     options.overwrite = true;
+
                     let res = fs_extra::file::move_file(app.command.to_string(), cd, &options);
+
                     result(app, res, "Moved file succesfully".to_string());
                 },
                 _ => {app.title = format!("Error metadata")}
@@ -181,7 +185,9 @@ fn select(app: &mut App, cmd_type: CommandType) {
     app.selected_item = app.items[i].to_string();
 }
 
-fn make_file_dest(selected_item: String) -> String{
+//future
+//make up file name for a filename that already exists
+fn make_file_already_exists_dest(selected_item: String) -> String{
     let mut cd = get_current_dir();
     cd = cd.trim().parse().unwrap();
     cd.push_str(format!("/{}", selected_item).as_str());
