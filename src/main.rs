@@ -235,14 +235,14 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             Spans::from("Maintained by © Koen Sampers 2022"),
             Spans::from("Fifm is open source and freely distributable"),
             Spans::from(""),
-            Spans::from("type m -> close manual page"),
-            Spans::from("type q -> exit"),
+            Spans::from("m -> close manual page"),
+            Spans::from("q -> exit"),
             Spans::from("arrow keys -> move"),
-            Spans::from("type enter -> enter directory"),
-            Spans::from("type c -> copy"),
-            Spans::from("type x -> cut"),
-            Spans::from("type v -> paste"),
-            Spans::from("type d -> delete"),
+            Spans::from("enter -> enter directory"),
+            Spans::from("c -> copy"),
+            Spans::from("x -> cut"),
+            Spans::from("v -> paste"),
+            Spans::from("d -> delete"),
         ];
 
     let pg_items: Paragraph = Paragraph::new(instruction_items).style(Style::default().fg(Color::LightCyan)).alignment(Alignment::Center);
