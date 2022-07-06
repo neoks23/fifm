@@ -16,7 +16,8 @@ use crossterm::{
     terminal::{disable_raw_mode,enable_raw_mode,EnterAlternateScreen,LeaveAlternateScreen},
 };
 use tui::backend::Backend;
-use tui::widgets::ListState;
+use tui::layout::Alignment;
+use tui::widgets::{ListState, Paragraph};
 use crate::custom_io::{get_current_dir, list_current_dir, set_current_dir, copy, make_command, cut, delete};
 
 ///Define custom stateful list, containing fields:
@@ -226,31 +227,27 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         )
         .highlight_symbol(">> ");
 
-    let mut instruction_items: Vec<String> = Vec::new();
-    instruction_items.push("".to_string());
-    instruction_items.push("FIFM - Friendly Interactive File Manager ".to_string());
-    instruction_items.push("".to_string());
-    instruction_items.push("version 0.2".to_string());
-    instruction_items.push("Maintained by © Koen Sampers 2022".to_string());
-    instruction_items.push("Fifm is open source and freely distributable".to_string());
-    instruction_items.push("".to_string());
-    instruction_items.push("m -> close manual page".to_string());
-    instruction_items.push("q -> exit".to_string());
-    instruction_items.push("arrow keys -> move".to_string());
-    instruction_items.push("enter -> enter directory".to_string());
-    instruction_items.push("c -> copy".to_string());
-    instruction_items.push("x -> cut".to_string());
-    instruction_items.push("v -> paste".to_string());
-    instruction_items.push("d -> delete".to_string());
+    let instruction_items = vec![
+            Spans::from(""),
+            Spans::from("FIFM - Friendly Interactive File Manager "),
+            Spans::from(""),
+            Spans::from("version 0.2"),
+            Spans::from("Maintained by © Koen Sampers 2022"),
+            Spans::from("Fifm is open source and freely distributable"),
+            Spans::from(""),
+            Spans::from("m -> close manual page"),
+            Spans::from("q -> exit"),
+            Spans::from("arrow keys -> move"),
+            Spans::from("enter -> enter directory"),
+            Spans::from("c -> copy"),
+            Spans::from("x -> cut"),
+            Spans::from("v -> paste"),
+            Spans::from("d -> delete"),
+        ];
 
-    let instruction_items: Vec<ListItem> =
-        instruction_items.iter().map(|i|{
-            let lines = vec![Spans::from(i.to_string())];
-            ListItem::new(lines).style(Style::default().fg(Color::LightCyan).add_modifier(Modifier::ITALIC))
-        })
-        .collect();
+    let pg_items: Paragraph = Paragraph::new(instruction_items).style(Style::default().fg(Color::LightCyan)).alignment(Alignment::Center);
 
-    let instruction_items: List = List::new(instruction_items)
+    let pg_items = pg_items
         .block(
             Block::default()
                 .border_style(
@@ -261,10 +258,11 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 .title(
                     Span::styled("MANUAL", Style::default().fg(Color::Blue).add_modifier(Modifier::ITALIC))
                 )
+
         );
 
     //render list items
     f.render_stateful_widget(items, chunks[0], &mut app.view_items.state);
     //render instructions if manual is toggled
-    if app.man {f.render_widget(instruction_items, chunks[1])}
+    if app.man {f.render_widget(pg_items, chunks[1])}
 }
