@@ -15,7 +15,7 @@ pub fn list_current_dir_matches(grep: String) -> usize {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     //convert string to string slices and insert the output  Vec<String>
-    let mut cd_items: Vec<String> = stdout.split('\n').map(String::from).collect();
+    let cd_items: Vec<String> = stdout.split('\n').map(String::from).collect();
     cd_items.len()
 }
 ///outputs current dir for view_items
@@ -75,15 +75,6 @@ pub fn set_current_dir(app: &mut App) {
         _ => ()
     }
 }
-fn select(app: &mut App, cmd_type: CommandType) {
-    app.command_type = cmd_type;
-
-    let i = match app.view_items.state.selected() {
-        Some(i) => i,
-        None => 0
-    };
-    app.selected_item = app.items[i].to_string();
-}
 
 pub fn copy(app: &mut App){
     select(app, CommandType::Copy);
@@ -94,10 +85,10 @@ pub fn copy(app: &mut App){
     app.command = cd;
     app.title = format!("Copied {}",  app.command.as_str());
 }
-pub fn move_file(app: &mut App){
+pub fn cut(app: &mut App){
     copy(app);
     app.title = format!("Cut {}",  app.command.as_str());
-    select(app, CommandType::Move);
+    select(app, CommandType::Cut);
 }
 pub fn delete(app: &mut App) {
     select(app, CommandType::Remove);
@@ -110,25 +101,14 @@ pub fn make_command(app: &mut App){
 
             let mut cd =  get_current_dir();
             cd = cd.trim().parse().unwrap();
-            cd.push_str("/");
-            cd.push_str(app.selected_item.as_str());
 
             let md = Path::new(app.command.as_str());
 
-            if app.command.to_string() == cd && md.is_file() {
-                cd.clear();
-                cd =  get_current_dir();
-                cd = cd.trim().parse().unwrap();
-                cd.push_str("/");
-                let size = list_current_dir_matches(app.selected_item.to_string());
-                cd.push_str(format!("({}) ", size).as_str());
-                cd.push_str(app.selected_item.as_str());
-            }
+            if md.is_file() { cd.push_str("/"); cd.push_str(app.selected_item.as_str());}
+            if app.command.to_string() == cd && md.is_file() { cd = make_file_dest(app.selected_item.to_string()); }
 
             match md {
                 md if md.is_dir() => {
-                    let mut cd =  get_current_dir();
-                    cd = cd.trim().parse().unwrap();
                     let mut options = fs_extra::dir::CopyOptions::new();
                     options.overwrite = true;
                     let res = fs_extra::dir::copy(app.command.to_string(), cd, &options);
@@ -143,7 +123,11 @@ pub fn make_command(app: &mut App){
             }
         },
         CommandType::Remove => {
-            let res = trash::delete(app.selected_item.to_string());
+            let res : Result<(), trash::Error>;
+
+            if app.selected_item.to_string() == ".." {res = Err(trash::Error::Unknown { description: "user not allowed to delete .. directory".to_string() });}
+            else {res = trash::delete(app.selected_item.to_string());}
+
             match res {
                 Ok(_res) => {
                     app.title = format!("Moved {} succesfully to Trash", app.selected_item.to_string());
@@ -154,29 +138,18 @@ pub fn make_command(app: &mut App){
                 Err(e) => app.title = e.to_string()
             }
         }
-        CommandType::Move => {
+        CommandType::Cut => {
 
             let mut cd =  get_current_dir();
             cd = cd.trim().parse().unwrap();
-            cd.push_str("/");
-            cd.push_str(app.selected_item.as_str());
 
             let md = Path::new(app.command.as_str());
 
-            if app.command.to_string() == cd && md.is_file() {
-                cd.clear();
-                cd =  get_current_dir();
-                cd = cd.trim().parse().unwrap();
-                cd.push_str("/");
-                let size = list_current_dir_matches(app.selected_item.to_string());
-                cd.push_str(format!("({}) ", size).as_str());
-                cd.push_str(app.selected_item.as_str());
-            }
+            if md.is_file() { cd.push_str("/"); cd.push_str(app.selected_item.as_str());}
+            if app.command.to_string() == cd && md.is_file() { cd = make_file_dest(app.selected_item.to_string()); }
 
             match md {
                 md if md.is_dir() => {
-                    let mut cd =  get_current_dir();
-                    cd = cd.trim().parse().unwrap();
                     let mut options = fs_extra::dir::CopyOptions::new();
                     options.overwrite = true;
                     let res = fs_extra::dir::move_dir(app.command.to_string(), cd, &options);
@@ -203,4 +176,23 @@ fn result(app: &mut App, res: Result<u64, Error>, on_succes_msg: String) {
         },
         Err(e) => app.title = format!("Error res {}", e.to_string()),
     }
+}
+fn select(app: &mut App, cmd_type: CommandType) {
+    app.command_type = cmd_type;
+
+    let i = match app.view_items.state.selected() {
+        Some(i) => i,
+        None => 0
+    };
+    app.selected_item = app.items[i].to_string();
+}
+
+fn make_file_dest(selected_item: String) -> String{
+    let mut cd = get_current_dir();
+    cd = cd.trim().parse().unwrap();
+    cd.push_str("/");
+    let size = list_current_dir_matches(selected_item.to_string());
+    cd.push_str(format!("({}) ", size).as_str());
+    cd.push_str(selected_item.as_str());
+    cd
 }

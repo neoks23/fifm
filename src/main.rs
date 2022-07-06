@@ -5,8 +5,8 @@ use std::error::Error;
 use tui::{
     backend::CrosstermBackend,
     style::{Color, Modifier, Style},
-    text::{Span, Spans, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    text::{Span, Spans},
+    widgets::{Block, Borders, List, ListItem},
     layout::{Layout, Constraint, Direction},
     Frame, Terminal
 };
@@ -17,7 +17,7 @@ use crossterm::{
 };
 use tui::backend::Backend;
 use tui::widgets::ListState;
-use crate::custom_io::{get_current_dir, list_current_dir, set_current_dir, copy, make_command, move_file, delete};
+use crate::custom_io::{get_current_dir, list_current_dir, set_current_dir, copy, make_command, cut, delete};
 
 ///Define custom stateful list, containing fields:
 ///state: The state to get the current state of the list, for in this case manipulating cursor position
@@ -30,7 +30,7 @@ struct StatefulList<String> {
 
 enum CommandType{
     Idle,
-    Move,
+    Cut,
     Remove,
     Copy
 }
@@ -167,7 +167,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
             match key.code {
                 KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(()),
                 KeyCode::Char('c') | KeyCode::Char('C') => copy(&mut app),
-                KeyCode::Char('m') | KeyCode::Char('M') => move_file(&mut app),
+                KeyCode::Char('x') | KeyCode::Char('X') => cut(&mut app),
                 KeyCode::Char('v') | KeyCode::Char('V') => make_command(&mut app),
                 KeyCode::Char('d') | KeyCode::Char('D') => delete(&mut app),
                 KeyCode::Left | KeyCode::Right | KeyCode::Esc => {app.view_items.unselect(); app.title = get_current_dir()},
@@ -229,11 +229,12 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     instruction_items.push("enter -> enter directory".to_string());
     instruction_items.push("q -> quit".to_string());
     instruction_items.push("c -> copy".to_string());
-    instruction_items.push("m -> cut (move)".to_string());
+    instruction_items.push("x -> cut".to_string());
     instruction_items.push("v -> paste".to_string());
     instruction_items.push("d -> delete".to_string());
+    instruction_items.push("m -> close manual page".to_string());
 
-    let mut instruction_items: Vec<ListItem> =
+    let instruction_items: Vec<ListItem> =
         instruction_items.iter().map(|i|{
             let lines = vec![Spans::from(i.to_string())];
             ListItem::new(lines).style(Style::default().fg(Color::LightCyan).add_modifier(Modifier::ITALIC))
