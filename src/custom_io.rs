@@ -179,7 +179,7 @@ pub fn make_command(app: &mut App){
                     cd = cd.trim().parse().unwrap();
                     let mut options = fs_extra::dir::CopyOptions::new();
                     options.overwrite = true;
-                    let res = fs_extra::dir::move_dir(app.command.to_string(), &cd, &options);
+                    let res = fs_extra::dir::move_dir(app.command.to_string(), cd, &options);
                     result(app, res,  "Moved directory succesfully".to_string());
                 },
                 md if md.is_file() => {

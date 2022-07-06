@@ -1,6 +1,6 @@
 mod custom_io;
 
-use std::{io};
+use std::io;
 use std::error::Error;
 use tui::{
     backend::CrosstermBackend,
