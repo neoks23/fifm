@@ -101,7 +101,8 @@ pub struct App{
     command_type: CommandType,
     command: String,
     selected_item: String,
-    title: String
+    title: String,
+    man: bool
 }
 
 impl Default for App {
@@ -115,7 +116,8 @@ impl Default for App {
             command: "".to_string(),
             selected_item: "".to_string(),
             items: cd_items,
-            title
+            title,
+            man: true,
         }
     }
 }
@@ -170,6 +172,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                 KeyCode::Char('x') | KeyCode::Char('X') => cut(&mut app),
                 KeyCode::Char('v') | KeyCode::Char('V') => make_command(&mut app),
                 KeyCode::Char('d') | KeyCode::Char('D') => delete(&mut app),
+                KeyCode::Char('m') | KeyCode::Char('M') => app.man = !app.man,
                 KeyCode::Left | KeyCode::Right | KeyCode::Esc => {app.view_items.unselect(); app.title = get_current_dir()},
                 KeyCode::Down => app.view_items.next(),
                 KeyCode::Up => app.view_items.previous(),
@@ -190,8 +193,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        //            Constraint 1.          Constraint 2.
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .constraints([Constraint::Percentage(if app.man {50} else {100}), Constraint::Percentage(50)].as_ref())
         .split(f.size());
 
     // insert the view_items in a Vec<ListItem> with custom styling
@@ -225,14 +227,21 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .highlight_symbol(">> ");
 
     let mut instruction_items: Vec<String> = Vec::new();
+    instruction_items.push("".to_string());
+    instruction_items.push("FIFM - Friendly Interactive File Manager ".to_string());
+    instruction_items.push("".to_string());
+    instruction_items.push("version 0.2".to_string());
+    instruction_items.push("Maintained by © Koen Sampers 2022".to_string());
+    instruction_items.push("Fifm is open source and freely distributable".to_string());
+    instruction_items.push("".to_string());
+    instruction_items.push("m -> close manual page".to_string());
+    instruction_items.push("q -> exit".to_string());
     instruction_items.push("arrow keys -> move".to_string());
     instruction_items.push("enter -> enter directory".to_string());
-    instruction_items.push("q -> quit".to_string());
     instruction_items.push("c -> copy".to_string());
     instruction_items.push("x -> cut".to_string());
     instruction_items.push("v -> paste".to_string());
     instruction_items.push("d -> delete".to_string());
-    instruction_items.push("m -> close manual page".to_string());
 
     let instruction_items: Vec<ListItem> =
         instruction_items.iter().map(|i|{
@@ -256,6 +265,6 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     //render list items
     f.render_stateful_widget(items, chunks[0], &mut app.view_items.state);
-    //render message
-    f.render_widget(instruction_items, chunks[1]);
+    //render instructions if manual is toggled
+    if app.man {f.render_widget(instruction_items, chunks[1])}
 }

@@ -4,20 +4,6 @@ use std::path::Path;
 use std::process::Command;
 use crate::{App, CommandType, StatefulList};
 
-
-pub fn list_current_dir_matches(grep: String) -> usize {
-    let output = Command::new("ls")
-        .arg("-a")
-        .arg(format!("| grep {}", grep))
-        .output()
-        .expect("ls cmd failed to start");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    //convert string to string slices and insert the output  Vec<String>
-    let cd_items: Vec<String> = stdout.split('\n').map(String::from).collect();
-    cd_items.len()
-}
 ///outputs current dir for view_items
 pub fn list_current_dir(arg: String) -> Vec<String>{
     //cmd
@@ -80,8 +66,7 @@ pub fn copy(app: &mut App){
     select(app, CommandType::Copy);
     let mut cd = get_current_dir();
     cd = cd.trim().parse().unwrap();
-    cd.push_str("/");
-    cd.push_str( app.selected_item.as_str());
+    cd.push_str( format!("/{}", app.selected_item).as_str());
     app.command = cd;
     app.title = format!("Copied {}",  app.command.as_str());
 }
@@ -190,9 +175,6 @@ fn select(app: &mut App, cmd_type: CommandType) {
 fn make_file_dest(selected_item: String) -> String{
     let mut cd = get_current_dir();
     cd = cd.trim().parse().unwrap();
-    cd.push_str("/");
-    let size = list_current_dir_matches(selected_item.to_string());
-    cd.push_str(format!("({}) ", size).as_str());
-    cd.push_str(selected_item.as_str());
+    cd.push_str(format!("/{}", selected_item).as_str());
     cd
 }
