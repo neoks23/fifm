@@ -4,6 +4,20 @@ use std::path::Path;
 use std::process::Command;
 use crate::{App, CommandType, StatefulList};
 
+pub fn list_current_dir_matches(grep: String) -> usize {
+    let output = Command::new("ls")
+        .arg("-a")
+        .arg(format!("| grep {}", grep))
+        .output()
+        .expect("ls cmd failed to start");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    //convert string to string slices and insert the output  Vec<String>
+    let cd_items: Vec<String> = stdout.split('\n').map(String::from).collect();
+    cd_items.len()
+}
+
 ///outputs current dir for view_items
 pub fn list_current_dir(arg: String) -> Vec<String>{
     //cmd
@@ -117,8 +131,8 @@ pub fn make_command(app: &mut App){
         CommandType::Remove => {
             let res : Result<(), trash::Error>;
 
-            if app.selected_item.to_string() == ".." {res = Err(trash::Error::Unknown { description: "user not allowed to delete .. directory".to_string() });}
-            else {res = trash::delete(app.selected_item.to_string());}
+            if app.selected_item.to_string() == ".." {res = Err(trash::Error::Unknown { description: "user not allowed to delete .. directory".to_string()})}
+            else {res = trash::delete(app.selected_item.to_string())}
 
             match res {
                 Ok(_res) => {
@@ -190,6 +204,27 @@ fn select(app: &mut App, cmd_type: CommandType) {
 fn make_file_already_exists_dest(selected_item: String) -> String{
     let mut cd = get_current_dir();
     cd = cd.trim().parse().unwrap();
-    cd.push_str(format!("/{}", selected_item).as_str());
+    let file_name = file_name(&selected_item);
+    let extension = extension(&selected_item);
+    let size = list_current_dir_matches(file_name.clone());
+    cd.push_str(format!("/{} ({}){}", file_name, size, extension).as_str());
     cd
+}
+
+fn file_name(file_name: &str) -> String {
+    let file_name = Path::new(file_name).file_stem();
+    match file_name {
+        None => {"".to_string()}
+        Some(f) => {match f.to_os_string().into_string() {
+            Ok(f) => {f.to_string()}
+            Err(_) => {"".to_string()}
+        }}
+    }
+}
+fn extension(filename: &str) -> &str {
+    filename
+        .rfind('.')
+        .map(|idx| &filename[idx..])
+        .filter(|ext| ext.chars().skip(1).all(|c| c.is_ascii_alphanumeric()))
+        .unwrap_or("")
 }
