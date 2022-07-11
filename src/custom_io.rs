@@ -4,25 +4,6 @@ use std::path::Path;
 use std::process::Command;
 use crate::{App, CommandType, StatefulList};
 
-pub fn list_current_dir_matches(grep: &str) -> i32 {
-    let output = Command::new("ls")
-        .arg(format!("grep '{}'", grep).as_str())
-        .arg("wc -l")
-        .output()
-        .expect("ls cmd failed to start");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    let number = stdout.parse::<i32>();
-
-    let out = match number {
-        Ok(out) => {return out;}
-        Err(_) => {0 as i32}
-    };
-
-    out
-}
-
 ///outputs current dir for view_items
 pub fn list_current_dir(arg: String) -> Vec<String>{
     //cmd
@@ -109,12 +90,11 @@ pub fn make_command(app: &mut App){
             let md = Path::new(app.command.as_str());
 
             if md.is_file() { cd.push_str(format!("/{}", app.selected_item).as_str()); }
-            if app.command.to_string() == cd && md.is_file() { cd = make_file_already_exists_dest(app.selected_item.to_string()); }
-
+            if app.command.to_string() == cd && md.is_file() { cd = make_file_already_exists_dest(app.selected_item.to_string())}
+            if app.command.to_string() == cd && md.is_dir() { cd = make_dir_already_exists_dest(app.selected_item.to_string())}
             match md {
                 md if md.is_dir() => {
-                    let mut options = fs_extra::dir::CopyOptions::new();
-                    options.overwrite = true;
+                    let options = fs_extra::dir::CopyOptions::new();
 
                     let res: fs_extra::error::Result<u64> =
                     if app.selected_item.to_string() == ".." {Err(Error::new(ErrorKind::Other, "user not allowed to copy .. directory"))}
@@ -211,8 +191,14 @@ fn make_file_already_exists_dest(selected_item: String) -> String{
     cd = cd.trim().parse().unwrap();
     let file_name = file_name(&selected_item);
     let extension = extension(&selected_item);
-    let size = list_current_dir_matches(&selected_item);
-    cd.push_str(format!("/{} ({}){}", file_name, size, extension).as_str());
+    cd.push_str(format!("/{}_{}{}", file_name, 1, extension).as_str());
+    cd
+}
+
+fn make_dir_already_exists_dest(selected_item: String) -> String {
+    let mut cd = get_current_dir();
+    cd = cd.trim().parse().unwrap();
+    cd.push_str(format!("/{}_{}", selected_item, 1).as_str());
     cd
 }
 
