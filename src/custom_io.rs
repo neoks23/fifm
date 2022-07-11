@@ -4,18 +4,23 @@ use std::path::Path;
 use std::process::Command;
 use crate::{App, CommandType, StatefulList};
 
-pub fn list_current_dir_matches(grep: String) -> usize {
+pub fn list_current_dir_matches(grep: &str) -> i32 {
     let output = Command::new("ls")
-        .arg("-a")
-        .arg(format!("| grep {}", grep))
+        .arg(format!("grep '{}'", grep).as_str())
+        .arg("wc -l")
         .output()
         .expect("ls cmd failed to start");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    //convert string to string slices and insert the output  Vec<String>
-    let cd_items: Vec<String> = stdout.split('\n').map(String::from).collect();
-    cd_items.len()
+    let number = stdout.parse::<i32>();
+
+    let out = match number {
+        Ok(out) => {return out;}
+        Err(_) => {0 as i32}
+    };
+
+    out
 }
 
 ///outputs current dir for view_items
@@ -206,7 +211,7 @@ fn make_file_already_exists_dest(selected_item: String) -> String{
     cd = cd.trim().parse().unwrap();
     let file_name = file_name(&selected_item);
     let extension = extension(&selected_item);
-    let size = list_current_dir_matches(file_name.clone());
+    let size = list_current_dir_matches(&selected_item);
     cd.push_str(format!("/{} ({}){}", file_name, size, extension).as_str());
     cd
 }
