@@ -237,12 +237,18 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             Spans::from(""),
             Spans::from("m -> close manual page"),
             Spans::from("q -> exit"),
-            Spans::from("arrow keys -> move"),
-            Spans::from("enter -> enter directory"),
             Spans::from("c -> copy"),
             Spans::from("x -> cut"),
             Spans::from("v -> paste"),
             Spans::from("d -> delete"),
+            Spans::from(""),
+            Spans::from(vec![
+                Span::raw("Run "),
+                Span::styled("man fifm", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" OR "),
+                Span::styled("fifm -h", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" for more controls"),
+                ])
         ];
 
     let pg_items: Paragraph = Paragraph::new(instruction_items).style(Style::default().fg(Color::LightCyan)).alignment(Alignment::Center);
