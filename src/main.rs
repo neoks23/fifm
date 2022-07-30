@@ -1,24 +1,26 @@
 mod custom_io;
 
-use std::io;
-use std::error::Error;
-use tui::{
-    backend::CrosstermBackend,
-    style::{Color, Modifier, Style},
-    text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem},
-    layout::{Layout, Constraint, Direction},
-    Frame, Terminal
+use crate::custom_io::{
+    copy, cut, delete, get_current_dir, list_current_dir, make_command, set_current_dir,
 };
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode,enable_raw_mode,EnterAlternateScreen,LeaveAlternateScreen},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use std::error::Error;
+use std::io;
 use tui::backend::Backend;
 use tui::layout::Alignment;
 use tui::widgets::{ListState, Paragraph};
-use crate::custom_io::{get_current_dir, list_current_dir, set_current_dir, copy, make_command, cut, delete};
+use tui::{
+    backend::CrosstermBackend,
+    layout::{Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    text::{Span, Spans},
+    widgets::{Block, Borders, List, ListItem},
+    Frame, Terminal,
+};
 
 ///Define custom stateful list, containing fields:
 ///state: The state to get the current state of the list, for in this case manipulating cursor position
@@ -29,15 +31,14 @@ struct StatefulList<String> {
     items: Vec<String>,
 }
 
-enum CommandType{
+enum CommandType {
     Idle,
     Cut,
     Remove,
-    Copy
+    Copy,
 }
 
 impl<String> StatefulList<String> {
-
     // basic custom constructor for our StateFulList.
 
     fn with_items(items: Vec<String>) -> StatefulList<String> {
@@ -85,7 +86,9 @@ impl<String> StatefulList<String> {
         self.state.select(Some(i));
     }
 
-    fn unselect(&mut self) {self.state.select(None);}
+    fn unselect(&mut self) {
+        self.state.select(None);
+    }
 }
 
 /// App holds the state of the application.
@@ -96,14 +99,14 @@ impl<String> StatefulList<String> {
 /// __________
 /// view_items is what is displayed during each fifm session
 
-pub struct App{
+pub struct App {
     view_items: StatefulList<String>,
     items: Vec<String>,
     command_type: CommandType,
     command: String,
     selected_item: String,
     title: String,
-    man: bool
+    man: bool,
 }
 
 impl Default for App {
@@ -174,7 +177,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                 KeyCode::Char('v') | KeyCode::Char('V') => make_command(&mut app),
                 KeyCode::Char('d') | KeyCode::Char('D') => delete(&mut app),
                 KeyCode::Char('m') | KeyCode::Char('M') => app.man = !app.man,
-                KeyCode::Left | KeyCode::Right | KeyCode::Esc => {app.view_items.unselect(); app.title = get_current_dir()},
+                KeyCode::Left | KeyCode::Right | KeyCode::Esc => {
+                    app.view_items.unselect();
+                    app.title = get_current_dir()
+                }
                 KeyCode::Down => app.view_items.next(),
                 KeyCode::Up => app.view_items.previous(),
                 KeyCode::Enter => set_current_dir(&mut app),
@@ -186,7 +192,6 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 
 /// ui handles frontend related stuff
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-
     // create chunk layout
     // __________
     // Constraint 1. for instructions
@@ -194,12 +199,21 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(if app.man {50} else {100}), Constraint::Percentage(50)].as_ref())
+        .constraints(
+            [
+                Constraint::Percentage(if app.man { 50 } else { 100 }),
+                Constraint::Percentage(50),
+            ]
+            .as_ref(),
+        )
         .split(f.size());
 
     // insert the view_items in a Vec<ListItem> with custom styling
-    let items: Vec<ListItem> =
-        app.view_items.items.iter().map(|i| {
+    let items: Vec<ListItem> = app
+        .view_items
+        .items
+        .iter()
+        .map(|i| {
             let lines = vec![Spans::from(i.to_string())];
             ListItem::new(lines).style(Style::default().fg(Color::LightCyan))
         })
@@ -212,13 +226,17 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .block(
             Block::default()
                 .border_style(
-                    Style::default().fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
                 )
-            .borders(Borders::ALL)
-                .title(
-                    Span::styled(app.title.to_string(), Style::default().fg(Color::Blue).add_modifier(Modifier::ITALIC))
-                )
+                .borders(Borders::ALL)
+                .title(Span::styled(
+                    app.title.to_string(),
+                    Style::default()
+                        .fg(Color::Blue)
+                        .add_modifier(Modifier::ITALIC),
+                )),
         )
         .highlight_style(
             Style::default()
@@ -228,47 +246,53 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .highlight_symbol(">> ");
 
     let instruction_items = vec![
-            Spans::from(""),
-            Spans::from("FIFM - Friendly Interactive File Manager "),
-            Spans::from(""),
-            Spans::from("version 0.2"),
-            Spans::from("Maintained by © Koen Sampers 2022"),
-            Spans::from("Fifm is open source and freely distributable"),
-            Spans::from(""),
-            Spans::from("m -> close manual page"),
-            Spans::from("q -> exit"),
-            Spans::from("c -> copy"),
-            Spans::from("x -> cut"),
-            Spans::from("v -> paste"),
-            Spans::from("d -> delete"),
-            Spans::from(""),
-            Spans::from(vec![
-                Span::raw("Run "),
-                Span::styled("man fifm", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" OR "),
-                Span::styled("fifm -h", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" for more controls"),
-                ])
-        ];
+        Spans::from(""),
+        Spans::from("FIFM - Friendly Interactive File Manager "),
+        Spans::from(""),
+        Spans::from("version 0.2"),
+        Spans::from("Maintained by © Koen Sampers 2022"),
+        Spans::from("Fifm is open source and freely distributable"),
+        Spans::from(""),
+        Spans::from("m -> close manual page"),
+        Spans::from("q -> exit"),
+        Spans::from("c -> copy"),
+        Spans::from("x -> cut"),
+        Spans::from("v -> paste"),
+        Spans::from("d -> delete"),
+        Spans::from(""),
+        Spans::from(vec![
+            Span::raw("Run "),
+            Span::styled("man fifm", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(" OR "),
+            Span::styled("fifm -h", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(" for more controls"),
+        ]),
+    ];
 
-    let pg_items: Paragraph = Paragraph::new(instruction_items).style(Style::default().fg(Color::LightCyan)).alignment(Alignment::Center);
+    let pg_items: Paragraph = Paragraph::new(instruction_items)
+        .style(Style::default().fg(Color::LightCyan))
+        .alignment(Alignment::Center);
 
-    let pg_items = pg_items
-        .block(
-            Block::default()
-                .border_style(
-                    Style::default().fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD)
-                )
-                .borders(Borders::ALL)
-                .title(
-                    Span::styled("MANUAL", Style::default().fg(Color::Blue).add_modifier(Modifier::ITALIC))
-                )
-
-        );
+    let pg_items = pg_items.block(
+        Block::default()
+            .border_style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .borders(Borders::ALL)
+            .title(Span::styled(
+                "MANUAL",
+                Style::default()
+                    .fg(Color::Blue)
+                    .add_modifier(Modifier::ITALIC),
+            )),
+    );
 
     //render list items
     f.render_stateful_widget(items, chunks[0], &mut app.view_items.state);
     //render instructions if manual is toggled
-    if app.man {f.render_widget(pg_items, chunks[1])}
+    if app.man {
+        f.render_widget(pg_items, chunks[1])
+    }
 }

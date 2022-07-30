@@ -1,8 +1,14 @@
 [package]
-name = "test-tui"
+name = "fifm"
 version = "0.1.0"
 edition = "2021"
-
+authors = ["Koen Sampers <neoks23@gmail.com>"]
+license = "GPL-3.0"
+description = "Friendly interactive file manager (FIFM) is a simple terminal file manager written in rust."
+readme = "README.md"
+homepage = "https://github.com/neoks23/fifm"
+rust-version = "1.61.0"
+repository = "https://github.com/neoks23/fifm"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
