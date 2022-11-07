@@ -6,3 +6,7 @@ fifm is open source and freely distributable<br/>
 fifm is licensed under GPL-3.0<br/>
 PR's could be accepted by the maintainer, Koen Sampers<br/>
 There are no guidelines for developers yet, they will be there in the future :)<br/>
+
+# DOWNLOAD
+From the AUR:
+paru -S fifm-bin
